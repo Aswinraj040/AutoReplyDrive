@@ -15,6 +15,7 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
     <uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
+
     <uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS"
         tools:ignore="BlockedPermission" />
 
@@ -34,7 +35,7 @@
         android:theme="@style/Theme.SMSSenderDuringDriving"
         tools:targetApi="31">
         <activity android:name=".DialerActivity"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.DIAL" />
                 <action android:name="android.intent.action.CALL" />
@@ -57,7 +58,15 @@
         <service
             android:name=".DrivingModeService"
             android:foregroundServiceType="phoneCall"
-            android:exported="false" />
+            android:exported="true" />
+        <receiver android:name=".CallReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.PHONE_STATE" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

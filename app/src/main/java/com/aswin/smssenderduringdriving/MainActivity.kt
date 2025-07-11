@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.widget.Button
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -18,20 +19,33 @@ class MainActivity : AppCompatActivity() {
     private val SMS_MESSAGE =
         "Sorry I am driving; will call you later — automated reply"
 
-    private val notificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
+    private val requiredPermissions = mutableListOf(
+        Manifest.permission.READ_PHONE_STATE,
+        Manifest.permission.SEND_SMS,
+        Manifest.permission.RECEIVE_SMS,
+        Manifest.permission.READ_CALL_LOG
+    ).apply {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            add(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }.toTypedArray()
+
+    private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.all { it.value }
+
+        if (allGranted) {
             startDrivingModeService()
         } else {
-            // Optional: Show a message or disable feature
+            // You can notify the user that all permissions are required
         }
     }
 
     private val roleRequestLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        // You can optionally check if the role was granted
+        // No action needed here unless you want to check if role was granted
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -42,8 +56,8 @@ class MainActivity : AppCompatActivity() {
         val stopBtn = findViewById<Button>(R.id.button_stop)
 
         startBtn.setOnClickListener {
-            requestDefaultDialer()
-            requestNotificationPermission()
+            requestDefaultDialer() // Request role first
+            requestAllPermissions() // Then request permissions
         }
 
         stopBtn.setOnClickListener {
@@ -53,25 +67,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestNotificationPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                return
-            }
+    private fun requestAllPermissions() {
+        val notGranted = requiredPermissions.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        startDrivingModeService()
-    }
 
-    private fun startDrivingModeService() {
-        val intent = Intent(this, DrivingModeService::class.java).apply {
-            putExtra("SMS_MESSAGE", SMS_MESSAGE)
+        if (notGranted.isNotEmpty()) {
+            permissionLauncher.launch(notGranted.toTypedArray())
+        } else {
+            startDrivingModeService()
         }
-        ContextCompat.startForegroundService(this, intent)
     }
 
     private fun requestDefaultDialer() {
@@ -82,5 +87,12 @@ class MainActivity : AppCompatActivity() {
                 roleRequestLauncher.launch(intent)
             }
         }
+    }
+
+    private fun startDrivingModeService() {
+        val intent = Intent(this, DrivingModeService::class.java).apply {
+            putExtra("SMS_MESSAGE", SMS_MESSAGE)
+        }
+        ContextCompat.startForegroundService(this, intent)
     }
 }
